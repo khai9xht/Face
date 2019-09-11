@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="face-api.js"></script>
+  <script src="js/commons.js"></script>
+  <script src="js/faceDetectionControls.js"></script>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/css/materialize.css">
+  <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.100.2/js/materialize.min.js"></script>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div class="center-content page-container">
+
+    <div class="progress" id="loader">
+      <div class="indeterminate"></div>
+    </div>
+    <div style="position: relative" class="margin">
+      <video onloadedmetadata="onPlay(this)" id="inputVideo" autoplay muted playsinline></video>
+      <canvas id="overlay" />
+      <canvas id="copy" / width="640" height="480">
+      <canvas id="out"/> 
+    </div>
+
+    <div class="row side-by-side">
+
+      <!-- fps_meter -->
+      <div id="fps_meter" class="row side-by-side">
+        <div>
+          <label for="time">Time:</label>
+          <input disabled value="-" id="time" type="text" class="bold">
+          <label for="fps">Estimated Fps:</label>
+          <input disabled value="-" id="fps" type="text" class="bold">
+        </div>
+      </div>
+      <!-- fps_meter -->
+
+    </div>
+  </body>
+
+  <script>
+    let forwardTimes = []
+
+
+    window.isLoaded = false;
+
+    let pass = false;
+
+    function updateTimeStats(timeInMs) {
+      forwardTimes = [timeInMs].concat(forwardTimes).slice(0, 30)
+      const avgTimeInMs = forwardTimes.reduce((total, t) => total + t) / forwardTimes.length
+      $('#time').val(`${Math.round(avgTimeInMs)} ms`)
+      $('#fps').val(`${faceapi.round(1000 / avgTimeInMs)}`)
+    }
+
+    async function onPlay() {
+      const videoEl = $('#inputVideo').get(0)
+
+      if(videoEl.paused || videoEl.ended || !isFaceDetectionModelLoaded())
+        return setTimeout(() => onPlay())
+
+      const options = getFaceDetectorOptions()
+
+      const ts = Date.now()
+
+      const result = await faceapi.detectSingleFace(videoEl, options).withFaceLandmarks()
+
+      updateTimeStats(Date.now() - ts)
+
+      if (result) {
+
+        const canvas = $('#overlay').get(0)
+        const dims = faceapi.matchDimensions(canvas, videoEl, true)
+        faceapi.draw.drawDetections(canvas, faceapi.resizeResults(result, dims))
+
+        pass = true;
+
+        const resizeResult = await faceapi.resizeResults(result, dims)
+
+        console.log('resize result:',resizeResult)
+
+        console.log('result: ',result)
+
+
+        const {_x,_y,_width,_height} = result.detection._box;
+
+
+        console.log('x: ',_x)
+        console.log('y: ',_y)
+
+
+        console.log(window.isLoaded)
+
+        $(window).keypress( async function (e) {
+          if(!pass || window.isLoaded){
+            return;
+          }
+          if (e.key === ' ' || e.key === 'Spacebar') {
+            // ' ' is standard, 'Spacebar' was used by IE9 and Firefox < 37
+
+            console.log('in here')
+
+            e.preventDefault()
+
+            let canvasOutput = document.getElementById("copy")
+
+            const {_x,_y,_width,_height} = result.detection._box;
+
+
+            console.log('x: ',_x)
+            console.log('y: ',_y)
+
+
+
+
+            const landmarks = result.landmarks._positions;
+            const newLandmarks = landmarks.map(function(points){
+                const newX = 1.0*(points._x - _x)/_width;
+                const newY = 1.0*(points._y - _y)/_height;
+                return {newX,newY}
+            })
+
+            
+            const input = document.getElementById("inputVideo")
+
+            const regionsToExtract = [
+              new faceapi.Rect(_x, _y, _width, _height)
+            ]
+
+            let roi = await faceapi.extractFaces(input, regionsToExtract)
+            
+            let output = roi[0]
+
+            output = output.toDataURL()
+
+            output = output.replace('data:image/png;base64,', '');
+
+            const data = JSON.stringify({data:output,box:{_x,_y,_width,_height},landMarks:newLandmarks});
+            
+            if(!window.isLoaded){
+
+                console.log('in here 3')
+
+                $.ajax
+                ({
+                    type: "POST",
+                    //the url where you want to sent the userName and password to
+                    url: 'http://192.168.10.157:8888/api',
+                    dataType: 'json',
+                    contentType: 'application/json; charset=utf-8',
+                    //json object to sent to the authentication url
+                    data: data,
+                    success: function (respone) {
+                        if(respone){
+                            const id = respone.id
+                            window.location.href = '/user/'+id;
+                        }
+                        else{
+                          alert(respone.id);
+                        }
+                    }
+                })
+                window.isLoaded = true;
+            }
+
+          }
+        })
+      }
+      else{
+        pass = false
+      }
+    
+      setTimeout(() => onPlay())
+    }
+
+    async function run() {
+      // load face detection model
+      await changeFaceDetector(TINY_FACE_DETECTOR)
+      await faceapi.loadFaceLandmarkModel('face_landmark_68_model-weights_manifest.json')
+
+      // try to access users webcam and stream the images
+      // to the video element
+      const stream = await navigator.mediaDevices.getUserMedia({ video: {} })
+      const videoEl = $('#inputVideo').get(0)
+      videoEl.srcObject = stream
+    }
+
+    function updateResults() {}
+
+    $(document).ready(function() {
+      initFaceDetectionControls()
+      run()
+    })
+  </script>
+</body>
+</html>
+
+
+<!-- $(document).keypress(function(e){
+
+  if(!isPassCheckSizeFace){
+    return;
+  }
+  if((e.key === ' ' || e.key ==='Spacebar')){
+
+    e.preventDefault();
+
+    let imageData = document.getElementById("_imageData");
+
+    let canvasOutput = document.getElementById("canvasOutput");
+
+    const boundingBox = face.bounds;
+    const landmarks = face.points;
+
+    const {x,y,width,height}= face.bounds;
+
+    const imageDataBox = imageData.getContext('2d').getImageData(x,y,width,height);
+
+    canvasOutput.getContext("2d").putImageData(imageDataBox,0,0)
+
+    canvasOutput = canvasOutput.toDataURL()
+
+    canvasOutput= canvasOutput.replace('data:image/png;base64,', '');
+
+    const data = JSON.stringify({data:canvasOutput,box:boundingBox,landMarks:landmarks});
+
+    if(!window.loaded){
+      $.ajax
+      ({
+          type: "POST",
+          //the url where you want to sent the userName and password to
+          url: 'streamer',
+          dataType: 'json',
+          contentType: 'application/json; charset=utf-8',
+          //json object to sent to the authentication url
+          data: data,
+          success: function (respone) {
+              if(respone){
+                  window.location.href = '/face/'+respone.name;
+              }
+              else{
+                alert(respone);
+              }
+          }
+      })
+      window.loaded = true;
+    }
+    
+  }
+}) -->
