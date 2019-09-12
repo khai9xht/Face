@@ -27,7 +27,12 @@ def add():
     faces = filter.filter(image, bboxes, points_list)
     embeddings = descriptor.process(faces)
 
-    database_manager.append_database({"features": embeddings, "labels": email})
+    areas = bboxes[:, 2:-1] - bboxes[:, :2]
+    areas = areas[:, 0] * areas[:, 1]
+    largest_bbox = np.argmax(areas)
+    
+    data = np.append([email], embeddings[largest_bbox])
+    database_manager.append_database(data)
     classifier.init_data(database_manager.get_database())
     return jsonify({"result": True})
 
