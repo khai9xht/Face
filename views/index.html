@@ -45,9 +45,20 @@
 			border-radius: 3px;
 			white-space: nowrap;
 			cursor: pointer;
-			font-size: 14pt;
+			font-size: 14pt;	
+		}
+		#reset{
+			margin-top: 10px;
 			
 		}
+		#reset-button{
+			background:lightslategrey;
+		}
+
+		#reset-button:hover{
+			background: red;
+		}
+
 	</style>
 
 
@@ -97,17 +108,21 @@
 							<label for="custom-file-upload" id="label-file" style="width: 100%" >Choose Your Image File</label>
 							
 					</div>
-			
+					
 
 					<div class="container-login100-form-btn">
 						<button class="login100-form-btn">
 							USE
 						</button> 
 					</div>
-					
+
+					<div id="reset" class="container-login100-form-btn">
+						<button id="reset-button" class="login100-form-btn" onclick="location.href='/reset'">
+							RESET
+						</button> 
+					</div>
 				
 				</form>
-
 				<div class="login100-more" style="background-image: url('images/bg-04.jpg');">
 				</div>
 			</div>
