@@ -7,6 +7,6 @@
      - Edit Url In Config.json In public/config.json   
 
 # Backend setup
-* Step 0: download `backend.zip` from this [link](f)
+* Step 0: download `backend.zip` from this [link](https://drive.google.com/open?id=1jdVOryo4qj-Zu1zAxwUXvMX3DPX_Vy2P)
 * Step 1: unzip `backend.zip` to the same folder as `app.py`
 * Step 2: run `python app.py`
